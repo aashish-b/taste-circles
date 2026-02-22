@@ -10,6 +10,12 @@ interface ListRowProps {
 export function ListRow({ item, userItem, href }: ListRowProps): JSX.Element {
   const titleClass = userItem.starred ? "list-row-title list-row-title-starred" : "list-row-title";
   const rowClass = userItem.starred ? "list-row list-row-starred" : "list-row";
+  const creatorLabel =
+    item.creators.length > 0
+      ? formatCreators(item.creators)
+      : item.provider === "MANUAL"
+        ? "Manual entry"
+        : "Creator unknown";
 
   return (
     <a className={rowClass} href={href}>
@@ -19,7 +25,7 @@ export function ListRow({ item, userItem, href }: ListRowProps): JSX.Element {
       <div className="list-row-main">
         <h3 className={titleClass}>{item.title}</h3>
         <p className="list-row-meta">
-          {item.year ?? "Year unknown"} - {formatCreators(item.creators)}
+          {item.year ?? "Year unknown"} - {creatorLabel}
         </p>
         <div className="list-row-chips">
           <StatusChip status={userItem.status} />

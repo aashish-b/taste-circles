@@ -32,6 +32,12 @@ export default async function ItemDetailPage({
       : "Season/episode counts unavailable";
   const description =
     item.description ?? "Simple description is not available yet for this item.";
+  const creatorLabel =
+    item.creators.length > 0
+      ? formatCreators(item.creators)
+      : item.provider === "MANUAL"
+        ? "Manual entry"
+        : "Creator unknown";
 
   return (
     <section className="item-detail-page">
@@ -53,7 +59,7 @@ export default async function ItemDetailPage({
           <p className="eyebrow">{item.category}</p>
           <h1 className="title-serif">{item.title}</h1>
           <p className="muted">
-            {item.year ?? "Year unknown"} - {formatCreators(item.creators)}
+            {item.year ?? "Year unknown"} - {creatorLabel}
           </p>
           {item.category === "TV" ? (
             <div className="item-tv-meta">
