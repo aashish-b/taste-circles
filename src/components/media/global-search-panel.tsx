@@ -88,13 +88,15 @@ async function fetchCategoryEntries(category: Category): Promise<CategoryListEnt
 
 export function GlobalSearchPanel({
   currentUserId,
+  initialCategorySlug = "movies",
   initialCategoryEntries,
 }: {
   currentUserId: string;
+  initialCategorySlug?: CategorySlug;
   initialCategoryEntries: CategoryListEntry[];
 }): JSX.Element {
   const [query, setQuery] = useState("");
-  const [categorySlug, setCategorySlug] = useState<CategorySlug>("movies");
+  const [categorySlug, setCategorySlug] = useState<CategorySlug>(initialCategorySlug);
   const [dbResults, setDbResults] = useState<SearchResult[]>([]);
   const [providerResults, setProviderResults] = useState<SearchResult[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(false);
