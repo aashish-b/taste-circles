@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  TV
+  MOVIE
+  MUSIC
+  ANIME
+  BOOK
+  GAME
+}
+
+enum Provider {
+  TMDB
+  OPEN_LIBRARY
+  MUSICBRAINZ
+  ANILIST
+  RAWG
+  MANUAL
+}
+
+enum UserItemStatus {
+  NONE
+  STARTED
+  FINISHED
+  DROPPED
+}
+
+enum RecommendationState {
+  SENT
+  ACK_STARTED
+  ACK_FINISHED
+  ACK_DROPPED
+}
+
+enum ListVisibility {
+  PRIVATE
+  UNLISTED_LINK
+  CIRCLE
+  PUBLIC
+}
+
+enum TasteBlurbStatus {
+  NONE
+  PENDING
+  READY
+  ERROR
+}
+
+model User {
+  id          String                  @id @default(cuid())
+  handle      String                  @unique
+  displayName String                  @map("display_name")
+  createdAt   DateTime                @default(now()) @map("created_at")
+
+  authAccounts            AuthAccount[]
+  credentials             Credentials?
+  ownedCircles            Circle[]                @relation("CircleOwner")
+  circleMemberships       CircleMember[]
+  categoryListSettings    CategoryListSettings[]
+  userItems               UserItem[]
+  recommendationsSent     Recommendation[]        @relation("RecommendationsFrom")
+  recommendationsReceived Recommendation[]        @relation("RecommendationsTo")
+  tasteBlurb              UserTasteBlurb?
+
+  @@map("users")
+}
+
+model AuthAccount {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  email             String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Credentials {
+  userId       String @id @map("user_id")
+  username     String @unique
+  passwordHash String @map("password_hash")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credentials")
+}
+
+model Circle {
+  id          String @id @default(cuid())
+  ownerUserId String @map("owner_user_id")
+  name        String
+
+  owner   User           @relation("CircleOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members CircleMember[]
+  listSettings CategoryListSettings[]
+
+  @@index([ownerUserId])
+  @@map("circles")
+}
+
+model CircleMember {
+  circleId String @map("circle_id")
+  userId   String @map("user_id")
+  role     String
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([circleId, userId])
+  @@unique([circleId, userId])
+  @@index([userId])
+  @@map("circle_members")
+}
+
+model CategoryListSettings {
+  userId        String         @map("user_id")
+  category      Category
+  visibility    ListVisibility
+  circleId      String?        @map("circle_id")
+  unlistedToken String?        @map("unlisted_token")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle? @relation(fields: [circleId], references: [id], onDelete: SetNull)
+
+  @@id([userId, category])
+  @@unique([userId, category])
+  @@index([circleId])
+  @@map("category_list_settings")
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  category    Category
+  provider    Provider
+  providerId  String   @map("provider_id")
+  title       String
+  year        Int?
+  creators    Json?
+  posterUrl   String?  @map("poster_url")
+  thumbUrl    String?  @map("thumb_url")
+  description String?
+  airingStatus String? @map("airing_status")
+  seasonCount Int?     @map("season_count")
+  episodeCount Int?    @map("episode_count")
+  tags        Json?
+
+  userItems        UserItem[]
+  recommendations  Recommendation[]
+
+  @@unique([category, provider, providerId])
+  @@index([category, title])
+  @@map("items")
+}
+
+model UserItem {
+  userId       String          @map("user_id")
+  itemId       String          @map("item_id")
+  starred      Boolean         @default(false)
+  status       UserItemStatus  @default(NONE)
+  verdictScore Int?            @map("verdict_score")
+  impactAge    Int?            @map("impact_age")
+  noteOneLiner String?         @map("note_one_liner") @db.VarChar(160)
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemId])
+  @@unique([userId, itemId])
+  @@index([itemId])
+  @@index([status])
+  @@map("user_items")
+}
+
+model Recommendation {
+  id                   String              @id @default(cuid())
+  fromUserId           String              @map("from_user_id")
+  toUserId             String              @map("to_user_id")
+  itemId               String              @map("item_id")
+  state                RecommendationState @default(SENT)
+  recipientVerdictScore Int?               @map("recipient_verdict_score")
+  excellent            Boolean             @default(false)
+  incompatible         Boolean             @default(false)
+  parentRecommendationId String?           @map("parent_recommendation_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  fromUser User            @relation("RecommendationsFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User            @relation("RecommendationsTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  item     Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  parent   Recommendation? @relation("RecommendationChain", fields: [parentRecommendationId], references: [id], onDelete: SetNull)
+  children Recommendation[] @relation("RecommendationChain")
+
+  @@index([toUserId, state])
+  @@index([itemId])
+  @@index([fromUserId])
+  @@map("recommendations")
+}
+
+model UserTasteBlurb {
+  userId        String          @id @map("user_id")
+  text          String?
+  isVisible     Boolean         @default(true) @map("is_visible")
+  status        TasteBlurbStatus @default(NONE)
+  provider      String?
+  model         String?
+  promptVersion Int             @default(1) @map("prompt_version")
+  generatedAt   DateTime?       @map("generated_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  errorMessage  String?         @map("error_message")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("user_taste_blurbs")
+}
