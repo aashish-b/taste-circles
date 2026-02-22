@@ -646,6 +646,13 @@ textarea:focus,
   gap: 0.5rem;
 }
 
+.search-result-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .manual-row {
   border: 1px dashed color-mix(in srgb, var(--accent2) 50%, var(--border));
   border-radius: var(--radius-md);

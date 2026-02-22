@@ -29,11 +29,15 @@ export function VerdictChip({
 }: {
   verdictScore: VerdictScore | null;
 }): JSX.Element | null {
+  if (verdictScore === null) {
+    return null;
+  }
   const verdict = getVerdictLabel(verdictScore);
   if (!verdict) {
     return null;
   }
-  return <Chip tone="neutral">Verdict {verdictScore}: {verdict}</Chip>;
+  const tone = verdictScore >= 4 ? "positive" : verdictScore <= 2 ? "warning" : "neutral";
+  return <Chip tone={tone}>Verdict {verdictScore}: {verdict}</Chip>;
 }
 
 export function RecommendationStateChip({

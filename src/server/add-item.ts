@@ -6,6 +6,7 @@ export interface AddItemInput {
   provider: Item["provider"];
   providerId: string;
   title: string;
+  verdictScore: Exclude<UserItem["verdictScore"], null>;
   year?: number | null;
   creators?: string[];
   posterUrl?: string | null;

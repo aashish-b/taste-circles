@@ -14,8 +14,8 @@ describe("domain helpers", () => {
   });
 
   it("maps verdict labels", () => {
-    expect(getVerdictLabel(1)).toContain("understands the universe");
-    expect(getVerdictLabel(5)).toBe("Boring");
+    expect(getVerdictLabel(1)).toBe("Time theft");
+    expect(getVerdictLabel(5)).toBe("Life-altering");
     expect(getVerdictLabel(null)).toBeNull();
   });
 });

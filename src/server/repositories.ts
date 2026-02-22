@@ -33,6 +33,7 @@ interface AddItemInput {
   provider: Item["provider"];
   providerId: string;
   title: string;
+  verdictScore: Exclude<UserItem["verdictScore"], null>;
   year?: number | null;
   creators?: string[];
   posterUrl?: string | null;
@@ -481,12 +482,14 @@ export async function upsertItemAndUserItemForCurrentUser(
       },
       update: {
         updatedAt: new Date(),
+        verdictScore: input.verdictScore,
         noteOneLiner: normalizedNote ?? undefined,
       },
       create: {
         userId: currentUser.id,
         itemId: item.id,
         status: initialStatus,
+        verdictScore: input.verdictScore,
         noteOneLiner: normalizedNote,
       },
     });

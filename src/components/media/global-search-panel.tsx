@@ -13,6 +13,8 @@ import {
   type Item,
   type SearchResult,
   type UserItem,
+  VERDICT_LABEL,
+  type VerdictScore,
 } from "@/lib/domain";
 import {
   clearQueuedManualAdds,
@@ -31,6 +33,15 @@ interface CategoryEntriesResponse {
 }
 
 const categorySlugs = Object.keys(CATEGORY_BY_SLUG) as CategorySlug[];
+const VERDICT_SCORES: VerdictScore[] = [1, 2, 3, 4, 5];
+
+function parseVerdictScore(rawValue: string): VerdictScore | null {
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
+  return VERDICT_SCORES.includes(parsed as VerdictScore) ? (parsed as VerdictScore) : null;
+}
 
 function buildManualFallback(query: string, category: Category): SearchResult {
   return {
@@ -50,7 +61,7 @@ function buildManualFallback(query: string, category: Category): SearchResult {
   };
 }
 
-async function addOnServer(result: SearchResult): Promise<void> {
+async function addOnServer(result: SearchResult, verdictScore: VerdictScore): Promise<void> {
   const response = await fetch("/api/items/add", {
     method: "POST",
     headers: {
@@ -69,6 +80,7 @@ async function addOnServer(result: SearchResult): Promise<void> {
       airingStatus: result.airingStatus ?? null,
       seasonCount: result.seasonCount ?? null,
       episodeCount: result.episodeCount ?? null,
+      verdictScore,
     }),
   });
 
@@ -104,6 +116,9 @@ export function GlobalSearchPanel({
   const [offlineBanner, setOfflineBanner] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [canonicalRows, setCanonicalRows] = useState<CategoryListEntry[]>(initialCategoryEntries);
+  const [pendingVerdicts, setPendingVerdicts] = useState<Record<string, VerdictScore | undefined>>(
+    {},
+  );
 
   const category = CATEGORY_BY_SLUG[categorySlug];
 
@@ -192,6 +207,10 @@ export function GlobalSearchPanel({
     (async () => {
       const pending: QueuedManualAdd[] = [];
       for (const entry of queue) {
+        if (!entry.verdictScore || !VERDICT_SCORES.includes(entry.verdictScore)) {
+          pending.push(entry);
+          continue;
+        }
         try {
           await addOnServer({
             category: entry.category,
@@ -207,7 +226,7 @@ export function GlobalSearchPanel({
             seasonCount: null,
             episodeCount: null,
             source: "DB",
-          });
+          }, entry.verdictScore);
         } catch {
           pending.push(entry);
         }
@@ -246,7 +265,16 @@ export function GlobalSearchPanel({
     [canonicalRows],
   );
 
-  async function addResult(result: SearchResult): Promise<void> {
+  async function addResult(
+    result: SearchResult,
+    verdictScore: VerdictScore | undefined,
+    verdictKey: string,
+  ): Promise<void> {
+    if (!verdictScore) {
+      setFetchError("Pick a verdict before adding.");
+      return;
+    }
+
     if (!isOnline && result.provider === "MANUAL") {
       enqueueManualAdd({
         userId: currentUserId,
@@ -256,16 +284,19 @@ export function GlobalSearchPanel({
         title: result.title,
         year: result.year,
         creators: result.creators,
+        verdictScore,
         createdAt: new Date().toISOString(),
       });
       setOfflineBanner("Offline-saved locally, will sync.");
+      setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
       return;
     }
 
     try {
-      await addOnServer(result);
+      await addOnServer(result, verdictScore);
       setOfflineBanner(`Added ${result.title}.`);
       setCanonicalRows(await fetchCategoryEntries(category));
+      setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
     } catch {
       if (result.provider === "MANUAL") {
         enqueueManualAdd({
@@ -276,9 +307,11 @@ export function GlobalSearchPanel({
           title: result.title,
           year: result.year,
           creators: result.creators,
+          verdictScore,
           createdAt: new Date().toISOString(),
         });
         setOfflineBanner("Offline-saved locally, will sync.");
+        setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
       } else {
         setFetchError("Add failed for provider result. Try manual fallback.");
       }
@@ -286,6 +319,10 @@ export function GlobalSearchPanel({
   }
 
   const manualFallback = query.trim() ? buildManualFallback(query.trim(), category) : null;
+  const manualVerdictKey = manualFallback
+    ? `${manualFallback.category}-${manualFallback.provider}-${manualFallback.title.toLowerCase()}`
+    : null;
+  const manualVerdictScore = manualVerdictKey ? pendingVerdicts[manualVerdictKey] : undefined;
 
   return (
     <section className="search-page stack">
@@ -347,6 +384,8 @@ export function GlobalSearchPanel({
 
             <div className="search-result-list">
               {unifiedResults.map((result) => {
+                const verdictKey = `${result.category}-${result.provider}-${result.providerId}`;
+                const selectedVerdict = pendingVerdicts[verdictKey];
                 const fauxItem: Item = {
                   id: `${result.provider}-${result.providerId}`,
                   category: result.category,
@@ -369,7 +408,7 @@ export function GlobalSearchPanel({
                   itemId: fauxItem.id,
                   starred: false,
                   status: "NONE",
-                  verdictScore: null,
+                  verdictScore: selectedVerdict ?? null,
                   impactAge: null,
                   noteOneLiner: null,
                   updatedAt: new Date().toISOString(),
@@ -378,9 +417,38 @@ export function GlobalSearchPanel({
                 return (
                   <div className="search-result-row" key={`${result.provider}-${result.providerId}`}>
                     <ListRow item={fauxItem} userItem={fauxUserItem} href="#" />
-                    <button className="button" type="button" onClick={() => addResult(result)}>
-                      Add
-                    </button>
+                    <div className="search-result-controls">
+                      <label className="field-inline">
+                        <span>Verdict</span>
+                        <select
+                          value={selectedVerdict ?? ""}
+                          onChange={(event) => {
+                            const next = parseVerdictScore(event.target.value);
+                            setPendingVerdicts((current) => ({
+                              ...current,
+                              [verdictKey]: next ?? undefined,
+                            }));
+                          }}
+                        >
+                          <option value="">Rate to add</option>
+                          {VERDICT_SCORES.map((score) => (
+                            <option key={score} value={score}>
+                              {score}
+                              {" - "}
+                              {VERDICT_LABEL[score]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="button"
+                        type="button"
+                        disabled={!selectedVerdict}
+                        onClick={() => void addResult(result, selectedVerdict, verdictKey)}
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -391,13 +459,46 @@ export function GlobalSearchPanel({
                     <p className="manual-title">Add manually: {manualFallback.title}</p>
                     <p className="muted">This always works, even if providers fail.</p>
                   </div>
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    onClick={() => addResult(manualFallback)}
-                  >
-                    Add manual
-                  </button>
+                  <div className="search-result-controls">
+                    <label className="field-inline">
+                      <span>Verdict</span>
+                      <select
+                        value={manualVerdictScore ?? ""}
+                        onChange={(event) => {
+                          if (!manualVerdictKey) {
+                            return;
+                          }
+                          const next = parseVerdictScore(event.target.value);
+                          setPendingVerdicts((current) => ({
+                            ...current,
+                            [manualVerdictKey]: next ?? undefined,
+                          }));
+                        }}
+                      >
+                        <option value="">Rate to add</option>
+                        {VERDICT_SCORES.map((score) => (
+                          <option key={score} value={score}>
+                            {score}
+                            {" - "}
+                            {VERDICT_LABEL[score]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      disabled={!manualVerdictScore || !manualVerdictKey}
+                      onClick={() => {
+                        if (!manualVerdictKey) {
+                          return;
+                        }
+                        void addResult(manualFallback, manualVerdictScore, manualVerdictKey);
+                      }}
+                    >
+                      Add manual
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>

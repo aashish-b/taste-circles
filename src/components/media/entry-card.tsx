@@ -1,6 +1,6 @@
 import { StatusChip, VerdictChip } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
-import { type UserItem } from "@/lib/domain";
+import { VERDICT_LABEL, type UserItem } from "@/lib/domain";
 
 export function EntryCard({ userItem }: { userItem: UserItem | null }): JSX.Element {
   if (!userItem) {
@@ -31,11 +31,11 @@ export function EntryCard({ userItem }: { userItem: UserItem | null }): JSX.Elem
               <span>Verdict score</span>
               <select defaultValue={userItem.verdictScore ?? ""}>
                 <option value="">None</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
+                <option value="1">1 - {VERDICT_LABEL[1]}</option>
+                <option value="2">2 - {VERDICT_LABEL[2]}</option>
+                <option value="3">3 - {VERDICT_LABEL[3]}</option>
+                <option value="4">4 - {VERDICT_LABEL[4]}</option>
+                <option value="5">5 - {VERDICT_LABEL[5]}</option>
               </select>
             </label>
             <label className="field">

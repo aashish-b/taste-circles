@@ -1,4 +1,4 @@
-import type { Category, Provider } from "@/lib/domain";
+import type { Category, Provider, VerdictScore } from "@/lib/domain";
 
 const QUEUE_STORAGE_KEY = "taste-circles.manual-add-queue";
 
@@ -10,6 +10,7 @@ export interface QueuedManualAdd {
   title: string;
   year: number | null;
   creators: string[];
+  verdictScore: VerdictScore;
   createdAt: string;
 }
 

@@ -192,11 +192,11 @@ export const RECOMMENDATION_STATE_LABEL: Record<RecommendationState, string> = {
 };
 
 export const VERDICT_LABEL: Record<VerdictScore, string> = {
-  1: "Whoever made this understands the universe the way I do",
-  2: "Life changing",
-  3: "Amazing - no complaints",
-  4: "Why did I waste my time?",
-  5: "Boring",
+  1: "Time theft",
+  2: "Not for me",
+  3: "Decent, not lasting",
+  4: "Hit hard",
+  5: "Life-altering",
 };
 
 export function parseCategorySlug(value: string): CategorySlug | null {
