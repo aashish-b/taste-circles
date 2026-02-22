@@ -1,6 +1,7 @@
 import { EntryCard } from "@/components/media/entry-card";
 import { ListRow } from "@/components/media/list-row";
 import { RecommendationCard } from "@/components/media/recommendation-card";
+import { VerdictWave } from "@/components/profile/verdict-wave";
 import {
   Chip,
   ExcellentChip,
@@ -17,6 +18,76 @@ import {
   getRecommendationsForInbox,
   getUserItem,
 } from "@/lib/mock-data";
+import { type TasteWaveCategoryMetric } from "@/lib/domain";
+
+const STYLEGUIDE_WAVE_METRICS: TasteWaveCategoryMetric[] = [
+  {
+    category: "TV",
+    total: 12,
+    finished: 7,
+    started: 3,
+    dropped: 2,
+    starred: 4,
+    avgVerdictScore: 4.3,
+    lastVerdictScore: 5,
+    lastUpdatedAt: new Date().toISOString(),
+  },
+  {
+    category: "MOVIE",
+    total: 16,
+    finished: 9,
+    started: 2,
+    dropped: 5,
+    starred: 2,
+    avgVerdictScore: 3.1,
+    lastVerdictScore: 3,
+    lastUpdatedAt: new Date().toISOString(),
+  },
+  {
+    category: "MUSIC",
+    total: 8,
+    finished: 2,
+    started: 1,
+    dropped: 0,
+    starred: 5,
+    avgVerdictScore: 4.8,
+    lastVerdictScore: 5,
+    lastUpdatedAt: new Date().toISOString(),
+  },
+  {
+    category: "ANIME",
+    total: 6,
+    finished: 3,
+    started: 1,
+    dropped: 2,
+    starred: 2,
+    avgVerdictScore: 2.4,
+    lastVerdictScore: 2,
+    lastUpdatedAt: new Date().toISOString(),
+  },
+  {
+    category: "BOOK",
+    total: 0,
+    finished: 0,
+    started: 0,
+    dropped: 0,
+    starred: 0,
+    avgVerdictScore: null,
+    lastVerdictScore: null,
+    lastUpdatedAt: null,
+  },
+  {
+    category: "GAME",
+    total: 4,
+    finished: 2,
+    started: 1,
+    dropped: 1,
+    starred: 1,
+    avgVerdictScore: 3.7,
+    lastVerdictScore: 4,
+    lastUpdatedAt: new Date().toISOString(),
+  },
+];
 
 export default function StyleguidePage(): JSX.Element {
   const item = getItemById("itm_movie_arrival");
@@ -69,6 +140,8 @@ export default function StyleguidePage(): JSX.Element {
         <h2>Recommendation card</h2>
         <RecommendationCard recommendation={recommendation} />
       </article>
+
+      <VerdictWave metrics={STYLEGUIDE_WAVE_METRICS} />
 
       <article className="card stack">
         <h2>States</h2>

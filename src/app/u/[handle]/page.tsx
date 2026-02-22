@@ -5,6 +5,7 @@ import {
   getCategorySummaryForUser,
   getCurrentUser,
   getTasteBlurbForUser,
+  getTasteWaveMetricsForUser,
   getUserByHandle,
 } from "@/server/repositories";
 
@@ -24,9 +25,10 @@ export default async function UserProfilePage({
     notFound();
   }
 
-  const [summary, tasteBlurb] = await Promise.all([
+  const [summary, tasteBlurb, waveMetrics] = await Promise.all([
     getCategorySummaryForUser(user.id),
     getTasteBlurbForUser(user.id),
+    getTasteWaveMetricsForUser(user.id),
   ]);
 
   return (
@@ -35,6 +37,7 @@ export default async function UserProfilePage({
       isOwnProfile={user.id === currentUser.id}
       summary={summary}
       tasteBlurb={tasteBlurb}
+      waveMetrics={waveMetrics}
     />
   );
 }

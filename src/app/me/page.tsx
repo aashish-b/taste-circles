@@ -3,15 +3,17 @@ import {
   getCategorySummaryForUser,
   getCurrentUser,
   getTasteBlurbForUser,
+  getTasteWaveMetricsForUser,
 } from "@/server/repositories";
 
 export const dynamic = "force-dynamic";
 
 export default async function MePage(): Promise<JSX.Element> {
   const user = await getCurrentUser();
-  const [summary, tasteBlurb] = await Promise.all([
+  const [summary, tasteBlurb, waveMetrics] = await Promise.all([
     getCategorySummaryForUser(user.id),
     getTasteBlurbForUser(user.id),
+    getTasteWaveMetricsForUser(user.id),
   ]);
 
   return (
@@ -20,6 +22,7 @@ export default async function MePage(): Promise<JSX.Element> {
       isOwnProfile
       summary={summary}
       tasteBlurb={tasteBlurb}
+      waveMetrics={waveMetrics}
     />
   );
 }

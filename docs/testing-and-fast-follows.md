@@ -38,6 +38,7 @@ Manual deterministic script:
 3. `npm run db:setup`
 4. `npm run dev`
 5. In `/search`, add one manual item in each category.
+   - Verify add is blocked until verdict is selected.
 6. Refresh page.
 7. Verify entries are present in `/u/me/<category>`.
 8. Restart dev server and re-check lists.
@@ -77,6 +78,7 @@ Pass condition:
 Add integration tests for:
 
 - `/api/items/add` transaction semantics,
+- `/api/items/add` rejecting missing `verdictScore`,
 - `/api/search` DB-first results,
 - `/api/recommendations/:id/accept` defaulting to `NONE` for first-time acceptance,
 - `/api/recommendations/:id/state` syncing recommendation and `user_items.status`,

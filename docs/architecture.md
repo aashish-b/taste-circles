@@ -7,6 +7,7 @@ This scaffold now includes a persisted baseline for the highest-value V1 paths:
 - App shell with constrained route map and sheet-first interactions.
 - Theme system (`Parchment + Umber Forest`) via CSS tokens.
 - Reusable components: `ListRow`, chips, sheet/drawer, `EntryCard`, `RecommendationCard`, state components.
+- Profile visualizer: server-rendered `Verdict Wave` on `/me` and `/u/[handle]`.
 - Canonical Item + UserItem data split represented in TypeScript and Prisma.
 - Prisma-backed list/search/add/item detail flows.
 - Server-only provider adapter interface and seeded provider fixtures.
@@ -36,6 +37,7 @@ Engineering route:
 1. Client calls `/api/search` for both DB-first and provider-backed results.
 2. User selects provider result or manual fallback.
 3. Client posts to `/api/items/add`.
+   - Verdict score is required at add time.
 4. Server executes one transaction:
    - upsert `Item` by `(category, provider, providerId)`
    - upsert `UserItem` by `(user_id, item_id)`

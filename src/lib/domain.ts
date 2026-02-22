@@ -104,6 +104,18 @@ export interface UserTasteBlurb {
   errorMessage: string | null;
 }
 
+export interface TasteWaveCategoryMetric {
+  category: Category;
+  total: number;
+  finished: number;
+  started: number;
+  dropped: number;
+  starred: number;
+  avgVerdictScore: number | null;
+  lastVerdictScore: VerdictScore | null;
+  lastUpdatedAt: string | null;
+}
+
 export interface Circle {
   id: string;
   ownerUserId: string;

@@ -18,9 +18,11 @@ import {
   type Recommendation,
   type RecommendationWithNames,
   type SearchResult,
+  type TasteWaveCategoryMetric,
   type User,
   type UserItem,
   type UserTasteBlurb,
+  type VerdictScore,
 } from "@/lib/domain";
 import { prisma } from "@/server/db";
 import { getProviderDetails } from "@/server/providers/registry";
@@ -345,6 +347,109 @@ export async function getCategorySummaryForUser(
   }
 
   return base;
+}
+
+export async function getTasteWaveMetricsForUser(
+  userId: string,
+): Promise<TasteWaveCategoryMetric[]> {
+  const entries = await prisma.userItem.findMany({
+    where: { userId },
+    select: {
+      status: true,
+      starred: true,
+      verdictScore: true,
+      updatedAt: true,
+      item: {
+        select: {
+          category: true,
+        },
+      },
+    },
+  });
+
+  const base = new Map<
+    Category,
+    {
+      category: Category;
+      total: number;
+      finished: number;
+      started: number;
+      dropped: number;
+      starred: number;
+      verdictSum: number;
+      verdictCount: number;
+      lastVerdictScore: VerdictScore | null;
+      lastUpdatedAt: Date | null;
+    }
+  >(
+    CATEGORY_ORDER.map((category) => [
+      category,
+      {
+        category,
+        total: 0,
+        finished: 0,
+        started: 0,
+        dropped: 0,
+        starred: 0,
+        verdictSum: 0,
+        verdictCount: 0,
+        lastVerdictScore: null,
+        lastUpdatedAt: null,
+      },
+    ]),
+  );
+
+  for (const entry of entries) {
+    const category = entry.item.category as Category;
+    const metric = base.get(category);
+    if (!metric) {
+      continue;
+    }
+
+    metric.total += 1;
+    if (entry.status === "FINISHED") {
+      metric.finished += 1;
+    } else if (entry.status === "STARTED") {
+      metric.started += 1;
+    } else if (entry.status === "DROPPED") {
+      metric.dropped += 1;
+    }
+
+    if (entry.starred) {
+      metric.starred += 1;
+    }
+
+    if (entry.verdictScore && entry.verdictScore >= 1 && entry.verdictScore <= 5) {
+      metric.verdictSum += entry.verdictScore;
+      metric.verdictCount += 1;
+    }
+
+    if (!metric.lastUpdatedAt || entry.updatedAt > metric.lastUpdatedAt) {
+      metric.lastUpdatedAt = entry.updatedAt;
+      metric.lastVerdictScore =
+        entry.verdictScore && entry.verdictScore >= 1 && entry.verdictScore <= 5
+          ? (entry.verdictScore as VerdictScore)
+          : null;
+    }
+  }
+
+  return CATEGORY_ORDER.map((category) => {
+    const metric = base.get(category)!;
+    return {
+      category,
+      total: metric.total,
+      finished: metric.finished,
+      started: metric.started,
+      dropped: metric.dropped,
+      starred: metric.starred,
+      avgVerdictScore:
+        metric.verdictCount > 0
+          ? Number((metric.verdictSum / metric.verdictCount).toFixed(2))
+          : null,
+      lastVerdictScore: metric.lastVerdictScore,
+      lastUpdatedAt: metric.lastUpdatedAt ? metric.lastUpdatedAt.toISOString() : null,
+    };
+  });
 }
 
 export async function getTasteBlurbForUser(userId: string): Promise<UserTasteBlurb | null> {

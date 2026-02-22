@@ -1,6 +1,8 @@
+import { VerdictWave } from "@/components/profile/verdict-wave";
 import {
   CATEGORY_LABEL,
   type Category,
+  type TasteWaveCategoryMetric,
   toCategorySlug,
   type User,
   type UserTasteBlurb,
@@ -12,11 +14,13 @@ export function ProfileView({
   isOwnProfile,
   summary,
   tasteBlurb,
+  waveMetrics,
 }: {
   user: User;
   isOwnProfile: boolean;
   summary: Record<Category, number>;
   tasteBlurb: UserTasteBlurb | null;
+  waveMetrics: TasteWaveCategoryMetric[];
 }): JSX.Element {
   return (
     <section className="profile-page">
@@ -59,6 +63,8 @@ export function ProfileView({
           />
         )}
       </section>
+
+      <VerdictWave metrics={waveMetrics} />
 
       <section className="card">
         <h2>Category lists</h2>
