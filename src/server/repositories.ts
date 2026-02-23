@@ -14,6 +14,8 @@ import {
   NOTE_ONE_LINER_MAX_LENGTH,
   type CategoryListEntry,
   type Category,
+  type CategoryProfileHighlight,
+  type CirclePulse,
   type Item,
   type Recommendation,
   type RecommendationWithNames,
@@ -349,6 +351,76 @@ export async function getCategorySummaryForUser(
   return base;
 }
 
+export async function getCategoryHighlightsForUser(
+  userId: string,
+): Promise<Record<Category, CategoryProfileHighlight>> {
+  const entries = await prisma.userItem.findMany({
+    where: { userId },
+    select: {
+      status: true,
+      verdictScore: true,
+      updatedAt: true,
+      item: {
+        select: {
+          category: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+  });
+
+  const base = Object.fromEntries(
+    CATEGORY_ORDER.map((category) => [
+      category,
+      {
+        category,
+        total: 0,
+        ratedCount: 0,
+        finishedCount: 0,
+        startedCount: 0,
+        droppedCount: 0,
+        lastItemTitle: null,
+        lastUpdatedAt: null,
+      } satisfies CategoryProfileHighlight,
+    ]),
+  ) as Record<Category, CategoryProfileHighlight>;
+
+  for (const entry of entries) {
+    const category = entry.item.category as Category;
+    const highlight = base[category];
+    highlight.total += 1;
+    if (entry.verdictScore && entry.verdictScore >= 1 && entry.verdictScore <= 5) {
+      highlight.ratedCount += 1;
+    }
+    if (entry.status === "FINISHED") {
+      highlight.finishedCount += 1;
+    } else if (entry.status === "STARTED") {
+      highlight.startedCount += 1;
+    } else if (entry.status === "DROPPED") {
+      highlight.droppedCount += 1;
+    }
+
+    if (!highlight.lastUpdatedAt) {
+      highlight.lastUpdatedAt = entry.updatedAt.toISOString();
+      highlight.lastItemTitle = entry.item.title;
+    }
+  }
+
+  return base;
+}
+
+export async function getPendingInboxCountForUser(userId: string): Promise<number> {
+  return prisma.recommendation.count({
+    where: {
+      toUserId: userId,
+      state: "SENT",
+    },
+  });
+}
+
 export async function getTasteWaveMetricsForUser(
   userId: string,
 ): Promise<TasteWaveCategoryMetric[]> {
@@ -608,6 +680,49 @@ export async function upsertItemAndUserItemForCurrentUser(
   };
 }
 
+export async function updateItemEntryForCurrentUser(input: {
+  itemId: string;
+  status?: UserItem["status"];
+  verdictScore?: UserItem["verdictScore"];
+}): Promise<UserItem | null> {
+  const currentUser = await ensureCurrentUser();
+  const item = await prisma.item.findUnique({ where: { id: input.itemId } });
+  if (!item) {
+    return null;
+  }
+
+  const hasVerdict = Object.prototype.hasOwnProperty.call(input, "verdictScore");
+  const updateData: Prisma.UserItemUpdateInput = {
+    updatedAt: new Date(),
+  };
+  if (input.status) {
+    updateData.status = input.status;
+  }
+  if (hasVerdict) {
+    updateData.verdictScore = input.verdictScore;
+  }
+
+  const createData: Prisma.UserItemCreateInput = {
+    user: { connect: { id: currentUser.id } },
+    item: { connect: { id: input.itemId } },
+    status: input.status ?? "NONE",
+    verdictScore: hasVerdict ? input.verdictScore ?? null : null,
+  };
+
+  const entry = await prisma.userItem.upsert({
+    where: {
+      userId_itemId: {
+        userId: currentUser.id,
+        itemId: input.itemId,
+      },
+    },
+    update: updateData,
+    create: createData,
+  });
+
+  return toDomainUserItem(entry);
+}
+
 export async function getItemDetailForCurrentUser(
   itemId: string,
 ): Promise<{
@@ -775,6 +890,8 @@ export async function setRecommendationStateForCurrentUser(input: {
   incompatible?: boolean;
 }): Promise<{ recommendation: Recommendation; userItem: UserItem } | null> {
   const currentUser = await ensureCurrentUser();
+  const shouldSyncVerdict =
+    input.recipientVerdictScore !== null && input.recipientVerdictScore !== undefined;
 
   const result = await prisma.$transaction(async (tx) => {
     const recommendation = await tx.recommendation.findFirst({
@@ -808,12 +925,14 @@ export async function setRecommendationStateForCurrentUser(input: {
       },
       update: {
         status: userItemStatus,
+        verdictScore: shouldSyncVerdict ? input.recipientVerdictScore : undefined,
         updatedAt: new Date(),
       },
       create: {
         userId: currentUser.id,
         itemId: recommendation.itemId,
         status: userItemStatus,
+        verdictScore: shouldSyncVerdict ? input.recipientVerdictScore : null,
       },
     });
 
@@ -865,4 +984,146 @@ export async function listCirclesForCurrentUser(): Promise<Array<{
       displayName: member.user.displayName,
     })),
   }));
+}
+
+export async function listCirclesWithPulseForCurrentUser(
+  windowDays = 30,
+): Promise<{ windowDays: number; circles: CirclePulse[] }> {
+  const currentUser = await ensureCurrentUser();
+  const circles = await prisma.circle.findMany({
+    where: { ownerUserId: currentUser.id },
+    include: {
+      members: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              handle: true,
+              displayName: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  if (circles.length === 0) {
+    return { windowDays, circles: [] };
+  }
+
+  const memberIds = Array.from(
+    new Set(
+      circles.flatMap((circle) =>
+        circle.members
+          .map((member) => member.user.id)
+          .filter((memberId) => memberId !== currentUser.id),
+      ),
+    ),
+  );
+  if (memberIds.length === 0) {
+    return {
+      windowDays,
+      circles: circles.map((circle) => ({
+        id: circle.id,
+        name: circle.name,
+        sentByYou: 0,
+        receivedFromThem: 0,
+        members: [],
+      })),
+    };
+  }
+
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+  const exchanges = await prisma.recommendation.findMany({
+    where: {
+      createdAt: { gte: since },
+      OR: [
+        {
+          fromUserId: currentUser.id,
+          toUserId: { in: memberIds },
+        },
+        {
+          toUserId: currentUser.id,
+          fromUserId: { in: memberIds },
+        },
+      ],
+    },
+    select: {
+      fromUserId: true,
+      toUserId: true,
+      createdAt: true,
+    },
+  });
+
+  const pulseByMember = new Map<
+    string,
+    { sentByYou: number; receivedFromThem: number; lastExchangeAt: Date | null }
+  >(
+    memberIds.map((memberId) => [
+      memberId,
+      {
+        sentByYou: 0,
+        receivedFromThem: 0,
+        lastExchangeAt: null,
+      },
+    ]),
+  );
+
+  for (const exchange of exchanges) {
+    const memberId =
+      exchange.fromUserId === currentUser.id ? exchange.toUserId : exchange.fromUserId;
+    const pulse = pulseByMember.get(memberId);
+    if (!pulse) {
+      continue;
+    }
+
+    if (exchange.fromUserId === currentUser.id) {
+      pulse.sentByYou += 1;
+    } else {
+      pulse.receivedFromThem += 1;
+    }
+
+    if (!pulse.lastExchangeAt || exchange.createdAt > pulse.lastExchangeAt) {
+      pulse.lastExchangeAt = exchange.createdAt;
+    }
+  }
+
+  return {
+    windowDays,
+    circles: circles.map((circle) => {
+      const members = circle.members
+        .filter((member) => member.user.id !== currentUser.id)
+        .map((member) => {
+        const pulse = pulseByMember.get(member.user.id);
+        return {
+          id: member.user.id,
+          handle: member.user.handle,
+          displayName: member.user.displayName,
+          sentByYou: pulse?.sentByYou ?? 0,
+          receivedFromThem: pulse?.receivedFromThem ?? 0,
+          lastExchangeAt: pulse?.lastExchangeAt ? pulse.lastExchangeAt.toISOString() : null,
+        };
+        });
+      members.sort(
+        (left, right) =>
+          right.sentByYou +
+          right.receivedFromThem -
+          (left.sentByYou + left.receivedFromThem),
+      );
+
+      return {
+        id: circle.id,
+        name: circle.name,
+        sentByYou: members.reduce((total, member) => total + member.sentByYou, 0),
+        receivedFromThem: members.reduce(
+          (total, member) => total + member.receivedFromThem,
+          0,
+        ),
+        members,
+      };
+    }),
+  };
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { EntryCard } from "@/components/media/entry-card";
+import { ItemPrimaryActions } from "@/components/media/item-primary-actions";
 import { RecommendationCard } from "@/components/media/recommendation-card";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/states";
@@ -71,9 +72,15 @@ export default async function ItemDetailPage({
         </div>
       </header>
 
+      <ItemPrimaryActions
+        itemId={item.id}
+        status={userItem?.status ?? null}
+        verdictScore={userItem?.verdictScore ?? null}
+      />
+
       <EntryCard userItem={userItem} />
 
-      <section className="card stack">
+      <section className="card stack" id="recommend-section">
         <header className="section-head">
           <h2>Recommendations</h2>
           <Sheet title="Recommend item" triggerLabel="Recommend">

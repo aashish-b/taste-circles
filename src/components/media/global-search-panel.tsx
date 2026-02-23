@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { ListRow } from "@/components/media/list-row";
+import { VerdictScale } from "@/components/ui/verdict-scale";
 import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/states";
 import {
   CATEGORY_BY_SLUG,
@@ -13,7 +20,6 @@ import {
   type Item,
   type SearchResult,
   type UserItem,
-  VERDICT_LABEL,
   type VerdictScore,
 } from "@/lib/domain";
 import {
@@ -32,16 +38,13 @@ interface CategoryEntriesResponse {
   entries: CategoryListEntry[];
 }
 
+interface AddApiResponse {
+  item: Item;
+  userItem: UserItem;
+}
+
 const categorySlugs = Object.keys(CATEGORY_BY_SLUG) as CategorySlug[];
 const VERDICT_SCORES: VerdictScore[] = [1, 2, 3, 4, 5];
-
-function parseVerdictScore(rawValue: string): VerdictScore | null {
-  const parsed = Number.parseInt(rawValue, 10);
-  if (!Number.isInteger(parsed)) {
-    return null;
-  }
-  return VERDICT_SCORES.includes(parsed as VerdictScore) ? (parsed as VerdictScore) : null;
-}
 
 function buildManualFallback(query: string, category: Category): SearchResult {
   return {
@@ -61,7 +64,14 @@ function buildManualFallback(query: string, category: Category): SearchResult {
   };
 }
 
-async function addOnServer(result: SearchResult, verdictScore: VerdictScore): Promise<void> {
+function isManualFallbackResult(result: SearchResult): boolean {
+  return result.provider === "MANUAL" && result.providerId === "manual-fallback";
+}
+
+async function addOnServer(
+  result: SearchResult,
+  verdictScore: VerdictScore,
+): Promise<AddApiResponse> {
   const response = await fetch("/api/items/add", {
     method: "POST",
     headers: {
@@ -87,6 +97,8 @@ async function addOnServer(result: SearchResult, verdictScore: VerdictScore): Pr
   if (!response.ok) {
     throw new Error(`Failed to add item (${response.status})`);
   }
+
+  return (await response.json()) as AddApiResponse;
 }
 
 async function fetchCategoryEntries(category: Category): Promise<CategoryListEntry[]> {
@@ -119,6 +131,10 @@ export function GlobalSearchPanel({
   const [pendingVerdicts, setPendingVerdicts] = useState<Record<string, VerdictScore | undefined>>(
     {},
   );
+  const [activeResultIndex, setActiveResultIndex] = useState(-1);
+  const [lastAdded, setLastAdded] = useState<{ itemId: string; title: string } | null>(null);
+  const [recentlyAddedKey, setRecentlyAddedKey] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const category = CATEGORY_BY_SLUG[categorySlug];
 
@@ -142,6 +158,45 @@ export function GlobalSearchPanel({
       window.removeEventListener("offline", syncOnlineState);
     };
   }, []);
+
+  useEffect(() => {
+    const onWindowKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const isTypingElement =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+      if (isTypingElement) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    };
+
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onWindowKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!recentlyAddedKey) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setRecentlyAddedKey(null);
+    }, 420);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [recentlyAddedKey]);
 
   useEffect(() => {
     fetchCategoryEntries(category)
@@ -265,6 +320,32 @@ export function GlobalSearchPanel({
     [canonicalRows],
   );
 
+  const trimmedQuery = query.trim();
+  const manualFallback = trimmedQuery ? buildManualFallback(trimmedQuery, category) : null;
+  const manualVerdictKey = manualFallback
+    ? `${manualFallback.category}-${manualFallback.provider}-${manualFallback.title.toLowerCase()}`
+    : null;
+  const manualVerdictScore = manualVerdictKey ? pendingVerdicts[manualVerdictKey] : undefined;
+  const actionableResults = useMemo(
+    () => (manualFallback ? [...unifiedResults, manualFallback] : [...unifiedResults]),
+    [manualFallback, unifiedResults],
+  );
+
+  useEffect(() => {
+    if (trimmedQuery.length === 0 || actionableResults.length === 0) {
+      setActiveResultIndex(-1);
+      return;
+    }
+    setActiveResultIndex(0);
+  }, [actionableResults.length, categorySlug, trimmedQuery]);
+
+  function getVerdictKey(result: SearchResult): string {
+    if (isManualFallbackResult(result) && manualVerdictKey) {
+      return manualVerdictKey;
+    }
+    return `${result.category}-${result.provider}-${result.providerId}`;
+  }
+
   async function addResult(
     result: SearchResult,
     verdictScore: VerdictScore | undefined,
@@ -288,15 +369,21 @@ export function GlobalSearchPanel({
         createdAt: new Date().toISOString(),
       });
       setOfflineBanner("Offline-saved locally, will sync.");
+      setLastAdded(null);
       setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
+      searchInputRef.current?.focus();
       return;
     }
 
     try {
-      await addOnServer(result, verdictScore);
+      const added = await addOnServer(result, verdictScore);
       setOfflineBanner(`Added ${result.title}.`);
+      setLastAdded({ itemId: added.item.id, title: added.item.title });
+      setRecentlyAddedKey(verdictKey);
+      setFetchError(null);
       setCanonicalRows(await fetchCategoryEntries(category));
       setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
+      searchInputRef.current?.focus();
     } catch {
       if (result.provider === "MANUAL") {
         enqueueManualAdd({
@@ -311,6 +398,7 @@ export function GlobalSearchPanel({
           createdAt: new Date().toISOString(),
         });
         setOfflineBanner("Offline-saved locally, will sync.");
+        setLastAdded(null);
         setPendingVerdicts((current) => ({ ...current, [verdictKey]: undefined }));
       } else {
         setFetchError("Add failed for provider result. Try manual fallback.");
@@ -318,14 +406,37 @@ export function GlobalSearchPanel({
     }
   }
 
-  const manualFallback = query.trim() ? buildManualFallback(query.trim(), category) : null;
-  const manualVerdictKey = manualFallback
-    ? `${manualFallback.category}-${manualFallback.provider}-${manualFallback.title.toLowerCase()}`
-    : null;
-  const manualVerdictScore = manualVerdictKey ? pendingVerdicts[manualVerdictKey] : undefined;
+  function handleSearchInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>): void {
+    if (actionableResults.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveResultIndex((current) => (current + 1) % actionableResults.length);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveResultIndex((current) =>
+        current <= 0 ? actionableResults.length - 1 : current - 1,
+      );
+      return;
+    }
+    if (event.key === "Enter" && activeResultIndex >= 0) {
+      event.preventDefault();
+      const activeResult = actionableResults[activeResultIndex];
+      if (!activeResult) {
+        return;
+      }
+      const verdictKey = getVerdictKey(activeResult);
+      const verdictScore = pendingVerdicts[verdictKey];
+      void addResult(activeResult, verdictScore, verdictKey);
+    }
+  }
 
   return (
-    <section className="search-page stack">
+    <section className={`search-page stack search-context-${categorySlug}`}>
       <header className="page-head">
         <div>
           <p className="eyebrow">Universal add</p>
@@ -338,28 +449,33 @@ export function GlobalSearchPanel({
       <div className="search-layout">
         <div className="search-main stack">
           <div className="card stack">
-            <label className="field">
+            <div className="field">
               <span>Category</span>
-              <select
-                value={categorySlug}
-                onChange={(event) => setCategorySlug(event.target.value as CategorySlug)}
-              >
+              <div className="filters-row search-category-terms">
                 {categorySlugs.map((slug) => (
-                  <option key={slug} value={slug}>
+                  <button
+                    key={slug}
+                    className={categorySlug === slug ? "segmented active" : "segmented"}
+                    type="button"
+                    onClick={() => setCategorySlug(slug)}
+                  >
                     {CATEGORY_LABEL[CATEGORY_BY_SLUG[slug]]}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
 
             <label className="field">
               <span>Title, creator, URL, or provider ID</span>
               <input
+                ref={searchInputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={handleSearchInputKeyDown}
                 placeholder="Search or paste a URL"
               />
             </label>
+            <p className="muted search-shortcut">Tip: press / to focus, arrows to move, Enter to add.</p>
           </div>
 
           {fetchError ? <ErrorState title="Provider fetch failed" body={fetchError} /> : null}
@@ -368,14 +484,23 @@ export function GlobalSearchPanel({
 
           <section className="card stack">
             <h2>Results</h2>
-            {query.trim().length === 0 ? (
+            {lastAdded ? (
+              <p className="inline-success">
+                Added {lastAdded.title}.{" "}
+                <a href={`/item/${lastAdded.itemId}`}>
+                  Open item
+                </a>
+              </p>
+            ) : null}
+
+            {trimmedQuery.length === 0 ? (
               <EmptyState
                 title="Start with a search"
                 body="DB matches appear immediately, provider matches follow."
               />
             ) : null}
 
-            {query.trim().length > 0 && unifiedResults.length === 0 && !isLoadingProviders ? (
+            {trimmedQuery.length > 0 && unifiedResults.length === 0 && !isLoadingProviders ? (
               <EmptyState
                 title="No matches"
                 body="Use manual add below to avoid blocking."
@@ -383,9 +508,16 @@ export function GlobalSearchPanel({
             ) : null}
 
             <div className="search-result-list">
-              {unifiedResults.map((result) => {
-                const verdictKey = `${result.category}-${result.provider}-${result.providerId}`;
+              {unifiedResults.map((result, index) => {
+                const verdictKey = getVerdictKey(result);
                 const selectedVerdict = pendingVerdicts[verdictKey];
+                const rowClasses = [
+                  "search-result-row",
+                  activeResultIndex === index ? "search-result-row-active" : "",
+                  recentlyAddedKey === verdictKey ? "search-result-row-added" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
                 const fauxItem: Item = {
                   id: `${result.provider}-${result.providerId}`,
                   category: result.category,
@@ -415,31 +547,25 @@ export function GlobalSearchPanel({
                 };
 
                 return (
-                  <div className="search-result-row" key={`${result.provider}-${result.providerId}`}>
+                  <div
+                    className={rowClasses}
+                    key={`${result.provider}-${result.providerId}`}
+                    onMouseEnter={() => setActiveResultIndex(index)}
+                  >
                     <ListRow item={fauxItem} userItem={fauxUserItem} href="#" />
                     <div className="search-result-controls">
-                      <label className="field-inline">
-                        <span>Verdict</span>
-                        <select
-                          value={selectedVerdict ?? ""}
-                          onChange={(event) => {
-                            const next = parseVerdictScore(event.target.value);
+                      <div className="verdict-selector-row">
+                        <span className="muted">Verdict</span>
+                        <VerdictScale
+                          selected={selectedVerdict}
+                          onSelect={(score) => {
                             setPendingVerdicts((current) => ({
                               ...current,
-                              [verdictKey]: next ?? undefined,
+                              [verdictKey]: score,
                             }));
                           }}
-                        >
-                          <option value="">Rate to add</option>
-                          {VERDICT_SCORES.map((score) => (
-                            <option key={score} value={score}>
-                              {score}
-                              {" - "}
-                              {VERDICT_LABEL[score]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        />
+                      </div>
                       <button
                         className="button"
                         type="button"
@@ -454,37 +580,38 @@ export function GlobalSearchPanel({
               })}
 
               {manualFallback ? (
-                <div className="search-result-row manual-row">
+                <div
+                  className={[
+                    "search-result-row manual-row",
+                    activeResultIndex === unifiedResults.length ? "search-result-row-active" : "",
+                    manualVerdictKey && recentlyAddedKey === manualVerdictKey
+                      ? "search-result-row-added"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onMouseEnter={() => setActiveResultIndex(unifiedResults.length)}
+                >
                   <div>
                     <p className="manual-title">Add manually: {manualFallback.title}</p>
                     <p className="muted">This always works, even if providers fail.</p>
                   </div>
                   <div className="search-result-controls">
-                    <label className="field-inline">
-                      <span>Verdict</span>
-                      <select
-                        value={manualVerdictScore ?? ""}
-                        onChange={(event) => {
+                    <div className="verdict-selector-row">
+                      <span className="muted">Verdict</span>
+                      <VerdictScale
+                        selected={manualVerdictScore}
+                        onSelect={(score) => {
                           if (!manualVerdictKey) {
                             return;
                           }
-                          const next = parseVerdictScore(event.target.value);
                           setPendingVerdicts((current) => ({
                             ...current,
-                            [manualVerdictKey]: next ?? undefined,
+                            [manualVerdictKey]: score,
                           }));
                         }}
-                      >
-                        <option value="">Rate to add</option>
-                        {VERDICT_SCORES.map((score) => (
-                          <option key={score} value={score}>
-                            {score}
-                            {" - "}
-                            {VERDICT_LABEL[score]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      />
+                    </div>
                     <button
                       className="button button-secondary"
                       type="button"

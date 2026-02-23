@@ -111,6 +111,24 @@ textarea {
   margin-bottom: 1.5rem;
 }
 
+.brand-link {
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition);
+}
+
+.brand-link:hover {
+  transform: translateY(-1px);
+}
+
+.brand-link:active {
+  transform: translateY(1px);
+}
+
+.brand-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 58%, transparent);
+}
+
 .brand-mark {
   width: 14px;
   height: 42px;
@@ -552,6 +570,17 @@ textarea:focus,
   gap: 0.4rem;
 }
 
+.recommendation-card-actions-triage {
+  align-items: center;
+}
+
+.recommendation-triage-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .filters-row {
   display: flex;
   flex-wrap: wrap;
@@ -607,8 +636,16 @@ textarea:focus,
   gap: 1rem;
 }
 
+.search-category-terms {
+  margin-bottom: 0;
+}
+
 .search-main {
   min-width: 0;
+}
+
+.search-shortcut {
+  font-size: 0.8rem;
 }
 
 .search-existing-panel {
@@ -644,6 +681,20 @@ textarea:focus,
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition),
+    border-color var(--transition);
+}
+
+.search-result-row-active {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 56%, transparent);
+  padding: 0.12rem;
+}
+
+.search-result-row-added {
+  animation: resultFlash 420ms linear;
 }
 
 .search-result-controls {
@@ -651,6 +702,65 @@ textarea:focus,
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.verdict-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.verdict-scale {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.verdict-scale-compact {
+  gap: 0.24rem;
+}
+
+.verdict-pill {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    transform var(--transition),
+    border-color var(--transition),
+    background var(--transition),
+    color var(--transition);
+}
+
+.verdict-pill:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
+  color: var(--text);
+}
+
+.verdict-pill:active {
+  transform: translateY(1px);
+}
+
+.verdict-pill.active {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  color: var(--text);
+}
+
+.inline-success {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+}
+
+.inline-success a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .manual-row {
@@ -714,6 +824,24 @@ textarea:focus,
   overflow: hidden;
 }
 
+.item-primary-card {
+  margin-top: 0.7rem;
+}
+
+.item-missing-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  margin-bottom: 0.45rem;
+}
+
+.item-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .profile-head {
   align-items: center;
 }
@@ -722,6 +850,10 @@ textarea:focus,
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.next-actions-card .button-row {
+  margin-top: 0.25rem;
 }
 
 .wave-card {
@@ -908,7 +1040,36 @@ button:focus-visible,
 
 .category-count {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
+}
+
+.category-metric {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.category-last {
+  color: color-mix(in srgb, var(--text) 76%, var(--muted));
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-tile-strong {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+
+.category-tile-mid {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.category-tile-light {
+  border-color: color-mix(in srgb, var(--accent2) 40%, var(--border));
+}
+
+.category-tile-empty {
+  opacity: 0.86;
 }
 
 .member-list {
@@ -927,6 +1088,80 @@ button:focus-visible,
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.65rem;
+}
+
+.member-pulse-list li {
+  align-items: center;
+}
+
+.member-pulse-stats {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.search-page,
+.category-list {
+  position: relative;
+  isolation: isolate;
+  --context-accent: var(--accent);
+  --context-accent2: var(--accent2);
+}
+
+.search-page::before,
+.category-list::before {
+  content: "";
+  position: absolute;
+  top: -0.75rem;
+  left: -0.75rem;
+  right: -0.75rem;
+  height: 140px;
+  background:
+    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--context-accent) 24%, transparent), transparent 52%),
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--context-accent2) 18%, transparent), transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.search-page .segmented.active,
+.category-list .segmented.active {
+  border-color: color-mix(in srgb, var(--context-accent) 48%, var(--border));
+  background: color-mix(in srgb, var(--context-accent) 20%, var(--surface));
+}
+
+.search-context-tv,
+.category-context-tv {
+  --context-accent: #2f8f69;
+  --context-accent2: #6b8c7b;
+}
+
+.search-context-movies,
+.category-context-movies {
+  --context-accent: #a14b2a;
+  --context-accent2: #7d5a47;
+}
+
+.search-context-music,
+.category-context-music {
+  --context-accent: #3da58e;
+  --context-accent2: #668f80;
+}
+
+.search-context-anime,
+.category-context-anime {
+  --context-accent: #5b8ccf;
+  --context-accent2: #8a6aa1;
+}
+
+.search-context-books,
+.category-context-books {
+  --context-accent: #8d7045;
+  --context-accent2: #557a6b;
+}
+
+.search-context-games,
+.category-context-games {
+  --context-accent: #3f9b63;
+  --context-accent2: #a35f39;
 }
 
 .state-card {
@@ -1063,6 +1298,15 @@ button:focus-visible,
   }
   100% {
     opacity: 0.75;
+  }
+}
+
+@keyframes resultFlash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
   }
 }
 

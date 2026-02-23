@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ProfileView } from "@/components/profile/profile-view";
 import {
-  getCategorySummaryForUser,
+  getCategoryHighlightsForUser,
   getCurrentUser,
   getTasteBlurbForUser,
   getTasteWaveMetricsForUser,
@@ -25,8 +25,8 @@ export default async function UserProfilePage({
     notFound();
   }
 
-  const [summary, tasteBlurb, waveMetrics] = await Promise.all([
-    getCategorySummaryForUser(user.id),
+  const [categoryHighlights, tasteBlurb, waveMetrics] = await Promise.all([
+    getCategoryHighlightsForUser(user.id),
     getTasteBlurbForUser(user.id),
     getTasteWaveMetricsForUser(user.id),
   ]);
@@ -35,7 +35,7 @@ export default async function UserProfilePage({
     <ProfileView
       user={user}
       isOwnProfile={user.id === currentUser.id}
-      summary={summary}
+      categoryHighlights={categoryHighlights}
       tasteBlurb={tasteBlurb}
       waveMetrics={waveMetrics}
     />

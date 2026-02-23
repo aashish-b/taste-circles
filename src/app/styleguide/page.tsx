@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/states";
+import { VerdictScale } from "@/components/ui/verdict-scale";
 import {
   CURRENT_USER_ID,
   getItemById,
@@ -129,6 +130,11 @@ export default function StyleguidePage(): JSX.Element {
         <Sheet title="Example sheet" triggerLabel="Open sheet">
           <p>This is the shared drawer/sheet component used for edit/recommend/share actions.</p>
         </Sheet>
+      </article>
+
+      <article className="card stack">
+        <h2>Verdict scale</h2>
+        <VerdictScale selected={4} />
       </article>
 
       <article className="card stack">

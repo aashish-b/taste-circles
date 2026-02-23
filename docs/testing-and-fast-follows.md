@@ -42,6 +42,8 @@ Manual deterministic script:
 6. Refresh page.
 7. Verify entries are present in `/u/me/<category>`.
 8. Restart dev server and re-check lists.
+9. In `/search`, verify keyboard flow: `/` focuses input, arrows change active result, `Enter` triggers add.
+10. Verify inline add confirmation shows link to `/item/<id>` and input focus remains in search.
 
 Pass condition:
 
@@ -55,6 +57,10 @@ Run these manual checks:
 2. Turn network back on, confirm queued entries sync.
 3. Trigger empty states on `/inbox`, `/people`, and a fresh category list.
 4. Trigger error state by stopping DB and loading `/search`.
+5. Verify item detail adaptive CTA:
+   - no verdict -> `Set verdict`
+   - not finished -> `Mark finished`
+   - finished + rated -> `Recommend`
 
 Pass condition:
 
@@ -79,11 +85,13 @@ Add integration tests for:
 
 - `/api/items/add` transaction semantics,
 - `/api/items/add` rejecting missing `verdictScore`,
+- `/api/items/[itemId]/entry` patch semantics for status/verdict updates,
 - `/api/search` DB-first results,
 - `/api/recommendations/:id/accept` defaulting to `NONE` for first-time acceptance,
-- `/api/recommendations/:id/state` syncing recommendation and `user_items.status`,
+- `/api/recommendations/:id/state` syncing recommendation + `user_items.status` + verdict when provided,
 - offline queue replay behavior,
-- list filtering/sorting logic in `CategoryListView`.
+- list filtering/sorting logic in `CategoryListView`,
+- people exchange pulse aggregation for circle/member counts.
 
 ## Fast follows (execution order)
 

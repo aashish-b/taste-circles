@@ -10,6 +10,7 @@ import {
   type Category,
   type CategoryListEntry,
   type UserItemStatus,
+  toCategorySlug,
 } from "@/lib/domain";
 
 const FILTERS: Array<"ALL" | "STARRED" | UserItemStatus> = [
@@ -43,6 +44,7 @@ export function CategoryListView({
 }): JSX.Element {
   const [activeFilter, setActiveFilter] = useState<"ALL" | "STARRED" | UserItemStatus>("ALL");
   const [sortMode, setSortMode] = useState<SortMode>("UPDATED");
+  const categorySlug = toCategorySlug(category);
 
   const filtered = useMemo(() => {
     const next = entries.filter((entry) => {
@@ -65,7 +67,7 @@ export function CategoryListView({
   }, [activeFilter, entries, sortMode]);
 
   return (
-    <section className="category-list">
+    <section className={`category-list category-context-${categorySlug}`}>
       <header className="page-head">
         <div>
           <p className="eyebrow">{displayName}</p>

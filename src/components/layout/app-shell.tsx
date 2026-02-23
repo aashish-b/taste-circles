@@ -52,13 +52,13 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   return (
     <div className="app-shell">
       <aside className="desktop-nav">
-        <div className="brand-block">
+        <a className="brand-block brand-link" href="/">
           <span className="brand-mark" aria-hidden="true" />
           <div>
             <p className="brand-title">Taste Circles</p>
             <p className="brand-subtitle">Parchment + Umber Forest</p>
           </div>
-        </div>
+        </a>
         <nav className="desktop-nav-links" aria-label="Primary navigation">
           {desktopEntries.map((entry) => (
             <NavLink key={entry.href} entry={entry} pathname={pathname} />

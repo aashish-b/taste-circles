@@ -116,6 +116,40 @@ export interface TasteWaveCategoryMetric {
   lastUpdatedAt: string | null;
 }
 
+export interface CategoryProfileHighlight {
+  category: Category;
+  total: number;
+  ratedCount: number;
+  finishedCount: number;
+  startedCount: number;
+  droppedCount: number;
+  lastItemTitle: string | null;
+  lastUpdatedAt: string | null;
+}
+
+export interface ProfileNextAction {
+  id: "inbox" | "rate" | "finish";
+  label: string;
+  href: string;
+}
+
+export interface CircleMemberPulse {
+  id: string;
+  handle: string;
+  displayName: string;
+  sentByYou: number;
+  receivedFromThem: number;
+  lastExchangeAt: string | null;
+}
+
+export interface CirclePulse {
+  id: string;
+  name: string;
+  sentByYou: number;
+  receivedFromThem: number;
+  members: CircleMemberPulse[];
+}
+
 export interface Circle {
   id: string;
   ownerUserId: string;

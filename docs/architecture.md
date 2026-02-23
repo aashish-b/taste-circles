@@ -8,11 +8,15 @@ This scaffold now includes a persisted baseline for the highest-value V1 paths:
 - Theme system (`Parchment + Umber Forest`) via CSS tokens.
 - Reusable components: `ListRow`, chips, sheet/drawer, `EntryCard`, `RecommendationCard`, state components.
 - Profile visualizer: server-rendered `Verdict Wave` on `/me` and `/u/[handle]`.
+- Profile control-room layer: contextual `Next actions` + richer category tiles (rated%, finished%, last item).
 - Canonical Item + UserItem data split represented in TypeScript and Prisma.
 - Prisma-backed list/search/add/item detail flows.
 - Server-only provider adapter interface and seeded provider fixtures.
 - Manual-add fallback with offline queue persistence in local storage.
 - Taste blurb generation boundaries stubbed for future worker-based async generation.
+- Keyboard-first search affordances (`/` focus, arrow navigation, Enter add) with verdict chip scale.
+- Inbox triage actions support started/finished/dropped inline with verdict capture.
+- People page renders 30-day recommendation exchange pulse by circle/member.
 
 ## Route inventory
 
@@ -38,6 +42,7 @@ Engineering route:
 2. User selects provider result or manual fallback.
 3. Client posts to `/api/items/add`.
    - Verdict score is required at add time.
+   - Search keeps focus for rapid batch entry and shows inline success with direct "Open item".
 4. Server executes one transaction:
    - upsert `Item` by `(category, provider, providerId)`
    - upsert `UserItem` by `(user_id, item_id)`
@@ -61,6 +66,7 @@ Still stubbed:
 - Real provider integrations/caching tables
 - Auth/session-backed identity
 - Taste blurb generation jobs
+- Recommendation send API (sheet is present; transport is still placeholder)
 
 ## Next iterations
 
